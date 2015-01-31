@@ -3,6 +3,7 @@ import time
 import requests
 import json
 import sys
+import getpass
 
 import bs4
 import mechanize
@@ -12,11 +13,19 @@ from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import Select
 
+"""
+sample dictionary '{"term": "1155", "employer_name": "TD", "job_title": "analyst", "disciplines": ["ENG-Software", "MATH-Computer Science", "MATH-Computing & Financial Management"], "junior": true, "intermediate": true, "senior": "false"}'
+"""
+
 
 #-----------------------------------------------------------
 
-userid = sys.argv[1]
-pwd = sys.argv[2]
+#userid = sys.argv[1]
+#pwd = sys.argv[2]
+userid = raw_input("Username: ")
+pwd = getpass.getpass("Password: ")
+_settings = sys.argv[1]
+settings = json.loads(_settings)
 
 search_url = "https://jobmine.ccol.uwaterloo.ca/psc/SS/EMPLOYEE/WORK/c/UW_CO_STUDENTS.UW_CO_JOBSRCH" 
 login_url = "https://jobmine.ccol.uwaterloo.ca/psp/SS/EMPLOYEE/WORK/"
@@ -46,22 +55,40 @@ def login_jobmine():
 
 def search_jobs():
     browser.get(search_url)
-    xpath = "//select[@name='UW_CO_JOBSRCH_UW_CO_ADV_DISCP1']/option[text()='%s']"
-    browser.find_element_by_xpath(xpath % 'ENG-Software').click()
-    browser.find_element_by_id("UW_CO_JOBSRCH_UW_CO_WT_SESSION").send_keys('1155')
+    xpath = "//select[@name='UW_CO_JOBSRCH_UW_CO_ADV_DISCP%s']/option[text()='%s']"
+    
+    if len(settings['disciplines']) > 2:
+        browser.find_element_by_xpath(xpath % ("3", settings['disciplines'][2])).click()
+    if len(settings['disciplines']) > 1:
+        browser.find_element_by_xpath(xpath % ("2", settings['disciplines'][1])).click()
+    if len(settings['disciplines']) > 0:
+        browser.find_element_by_xpath(xpath % ("1", settings['disciplines'][0])).click()
 
+
+    browser.find_element_by_id("UW_CO_JOBSRCH_UW_CO_WT_SESSION").send_keys(settings['term'])
+
+    employer_name = browser.find_element_by_id("UW_CO_JOBSRCH_UW_CO_EMPLYR_NAME")
+    job_title = browser.find_element_by_id("UW_CO_JOBSRCH_UW_CO_JOB_TITLE")
     jr = browser.find_element_by_id("UW_CO_JOBSRCH_UW_CO_COOP_JR")
     inter = browser.find_element_by_id("UW_CO_JOBSRCH_UW_CO_COOP_INT")
     sr = browser.find_element_by_id("UW_CO_JOBSRCH_UW_CO_COOP_SR")
 
-    if (not jr.is_selected()):
+    if (not jr.is_selected() and settings['junior']):
         jr.click()
 
-    if (not inter.is_selected()):
-            inter.click()
+    if (not inter.is_selected() and settings['intermediate']):
+        inter.click()
 
-    if (not sr.is_selected()):
-            sr.click()
+    if (not sr.is_selected() and settings['senior']):
+        sr.click()
+
+    if (len(settings['employer_name']) > 0):
+        employer_name.send_keys(settings['employer_name'])
+    
+    if (len(settings['job_title']) > 0):
+        job_title.send_keys(settings['job_title'])
+
+
 
     browser.find_element_by_id("UW_CO_JOBSRCHDW_UW_CO_DW_SRCHBTN").click()
     time.sleep(4)
