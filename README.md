@@ -6,7 +6,7 @@ Jobmine scraper written in Python 2.7 using Selenium and BeautifulSoap, by Rosti
 - BeautifulSoup 4
 
 #How to run:
-Clone the directory and in your terminal:
+Clone the directory and in your terminal type:
 ```python
 python scraper.py DICTIONARY
 ```
