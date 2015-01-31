@@ -1,7 +1,20 @@
 # Jobmine-Scraper
-Jobmine scraper written in Python 2.7 using Selenium and BeautifulSoap.
+Jobmine scraper written in Python 2.7 using Selenium and BeautifulSoap, by Rostislav Semenov.
 
-To launch type **python scraper.py USERNAME PASSWORD**, where USERNAME and PASSWORD are your jobmine login credentials.
+#Dependencies
+- Selenium
+- BeautifulSoup 4
+
+#How to run:
+Clone the directory and in your terminal:
+```python
+python scraper.py DICTIONARY
+```
+Where an example of DICTIONARY is:
+
+```python
+'{"term": "1155", "employer_name": "TD", "job_title": "analyst", "disciplines": ["ENG-Software", "MATH-Computer Science", "MATH-Computing & Financial Management"], "junior": true, "intermediate": true, "senior": false}'
+```
 
 ##Currently the scraper gets these attributes for each job:
 - posting open date
