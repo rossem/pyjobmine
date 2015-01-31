@@ -13,11 +13,6 @@ from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import Select
 
-"""
-sample dictionary '{"term": "1155", "employer_name": "TD", "job_title": "analyst", "disciplines": ["ENG-Software", "MATH-Computer Science", "MATH-Computing & Financial Management"], "junior": true, "intermediate": true, "senior": "false"}'
-"""
-
-
 #-----------------------------------------------------------
 
 #userid = sys.argv[1]
