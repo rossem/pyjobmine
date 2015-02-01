@@ -1,9 +1,32 @@
-# Jobmine-Scraper
-Jobmine scraper written in Python 2.7 using Selenium and BeautifulSoap, by Rostislav Semenov.
+# Jobmine-Scraper and REST API.
+Jobmine scraper and RESTful API written in Python 2.7 using Selenium and BeautifulSoap, by Rostislav Semenov.
+
+===
+#Using the REST API.
+
+###Usage.
+#####Send a GET request to http://jomine.me:8080 (jomine, ***NOT*** jobmine) with the following parameters:
+- `userid` -- JobMine username
+- `pwd` -- JobMine password
+- `term` -- coop term
+- `employer_name` -- name of the employer -- optional
+- `job_title` -- title of job -- optional
+- `discipline1` -- first discipline (e.g. "ENG-Software") -- optional 
+- `discipline2` -- second discipline -- optional
+- `discipline3` -- third discipline -- optional
+- `junior` -- junior level ("True" or "False") -- optional
+- `intermediate` -- intermediate level ("True" or "False") -- optional
+- `senior` -- senior level ("True" or "False") -- optional
+
+Or simply call `http://jomine.me:8080/?term=1155...` in your browser.
+
+#Using the Web Scraper/
+
 
 #Dependencies
 - Selenium
 - BeautifulSoup 4
+- Pyvirtualdisplay
 
 #How to run:
 Clone the directory and in your terminal type:
@@ -15,6 +38,8 @@ Where an example of DICTIONARY is:
 ```python
 '{"term": "1155", "employer_name": "TD", "job_title": "analyst", "disciplines": ["ENG-Software", "MATH-Computer Science", "MATH-Computing & Financial Management"], "junior": true, "intermediate": true, "senior": false}'
 ```
+
+===
 
 ##Currently the scraper gets these attributes for each job:
 - Posting open date
@@ -35,7 +60,8 @@ Where an example of DICTIONARY is:
 - Job description
 
 
-This is a sample of a JSON that the scraper gets:
+
+#This is a sample of a JSON that the scraper/api gets:
 
 ```json
 {
