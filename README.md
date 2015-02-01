@@ -1,11 +1,11 @@
-# Jobmine-Scraper and REST API.
+# Jobmine Scraper and REST API.
 Jobmine scraper and RESTful API written in Python 2.7 using Selenium and BeautifulSoap, by Rostislav Semenov.
 
 ===
 #Using the REST API.
 
 ###Usage.
-#####Send a GET request to http://jomine.me:8080 (jomine, ***NOT*** jobmine) with the following parameters:
+#####Send a GET request to `http://jomine.me:8080` ***(jomine, NOT jobmine)*** with the following parameters:
 - `userid` -- JobMine username
 - `pwd` -- JobMine password
 - `term` -- coop term
@@ -20,7 +20,7 @@ Jobmine scraper and RESTful API written in Python 2.7 using Selenium and Beautif
 
 Or simply call `http://jomine.me:8080/?term=1155...` in your browser.
 
-#Using the Web Scraper/
+#Using the Web Scraper.
 
 
 #Dependencies
