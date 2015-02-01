@@ -1,5 +1,5 @@
 from flask import Flask, request
-from scraper import *
+#from scraper import *
 
 import time
 import requests
