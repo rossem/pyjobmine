@@ -1,5 +1,6 @@
 from flask import Flask, request
 #from scraper import *
+from pyvirtualdisplay import Display
 
 import time
 import requests
@@ -143,12 +144,9 @@ def api_jobmine():
     search_url = "https://jobmine.ccol.uwaterloo.ca/psc/SS/EMPLOYEE/WORK/c/UW_CO_STUDENTS.UW_CO_JOBSRCH" 
     login_url = "https://jobmine.ccol.uwaterloo.ca/psp/SS/EMPLOYEE/WORK/"
     job_url = "https://jobmine.ccol.uwaterloo.ca/psc/SS_2/EMPLOYEE/WORK/c/UW_CO_STUDENTS.UW_CO_JOBDTLS.GBL?UW_CO_JOB_ID="
-    profile = webdriver.firefox.firefox_profile.FirefoxProfile()
-    profile.set_preference("browser.cache.disk.enable", False);
-    profile.set_preference("browser.cache.memory.enable", False);
-    profile.set_preference("browser.cache.offline.enable", False);
-    profile.set_preference("network.http.use-cache", False);
-    browser = webdriver.Firefox(firefox_profile=profile)
+    display = Display(visible=0, size=(800, 600))
+    display.start()
+    browser = webdriver.Firefox()
     job_data_list = []
 
     login_jobmine(data['userid'], data['pwd'], browser)
