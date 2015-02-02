@@ -20,6 +20,7 @@ Jobmine scraper and RESTful API written in Python 2.7 using Selenium and Beautif
 
 Or simply call `http://jomine.me:8080/?term=1155...` in your browser.
 
+*Note: it can take up to ~10 seconds to get the JSON.*
 #Using the Web Scraper.
 
 
@@ -38,6 +39,7 @@ Where an example of DICTIONARY is:
 ```python
 '{"term": "1155", "employer_name": "TD", "job_title": "analyst", "disciplines": ["ENG-Software", "MATH-Computer Science", "MATH-Computing & Financial Management"], "junior": true, "intermediate": true, "senior": false}'
 ```
+
 
 ===
 
