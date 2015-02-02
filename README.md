@@ -5,7 +5,7 @@ Jobmine scraper and RESTful API written in Python 2.7 using Selenium and Beautif
 #Using the REST API.
 
 ###Usage.
-#####Send a GET request to `http://jomine.me:8080` ***(jomine, NOT jobmine)*** with the following parameters:
+#####Send a GET request to `http://jomine.me/api/` ***(jomine, NOT jobmine)*** with the following parameters:
 - `userid` -- JobMine username
 - `pwd` -- JobMine password
 - `term` -- coop term
@@ -18,7 +18,7 @@ Jobmine scraper and RESTful API written in Python 2.7 using Selenium and Beautif
 - `intermediate` -- intermediate level ("True" or "False") -- optional
 - `senior` -- senior level ("True" or "False") -- optional
 
-Or simply call `http://jomine.me:8080/?term=1155...` in your browser.
+Or simply call `http://jomine.me/api/?term=1151...` in your browser.
 
 *Note: it can take up to ~10 seconds to get the JSON.*
 #Using the Web Scraper.
