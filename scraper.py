@@ -51,7 +51,7 @@ def login_jobmine():
 def search_jobs():
     browser.get(search_url)
     xpath = "//select[@name='UW_CO_JOBSRCH_UW_CO_ADV_DISCP%s']/option[text()='%s']"
-    
+
     if len(settings['disciplines']) > 2:
         browser.find_element_by_xpath(xpath % ("3", settings['disciplines'][2])).click()
     if len(settings['disciplines']) > 1:
@@ -131,7 +131,6 @@ def scrape_job(job_id):
 
 
 def main():
-
     login_jobmine()
     search_jobs()
     joblist = get_jobs()
