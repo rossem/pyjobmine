@@ -1,11 +1,15 @@
+import time
+import bs4
+
 from selenium import webdriver
+
 
 search_url = "https://jobmine.ccol.uwaterloo.ca/psc/SS/EMPLOYEE/WORK/c/UW_CO_STUDENTS.UW_CO_JOBSRCH" 
 login_url = "https://jobmine.ccol.uwaterloo.ca/psp/SS/EMPLOYEE/WORK/"
 job_url = "https://jobmine.ccol.uwaterloo.ca/psc/SS_2/EMPLOYEE/WORK/c/UW_CO_STUDENTS.UW_CO_JOBDTLS.GBL?UW_CO_JOB_ID="
 
 class JobmineQuery(object):
-    def __init__(self, term = 1165, employer_name = "", job_title = "", disciplines = ["ENG-Software", "MATH-Computer Science", "MATH-Computing & Financial Management"], levels = ['junior', 'intermdiate', 'senior']):
+    def __init__(self, term = 1165, employer_name = "", job_title = "", disciplines = ["ENG-Software", "MATH-Computer Science", "MATH-Computing & Financial Mgm"], levels = ['junior', 'intermdiate', 'senior']):
         self.term = term
         self.employer_name = employer_name
         self.job_title = job_title
@@ -17,7 +21,9 @@ class Jobmine(object):
         self.username = username
         self.password = password
         self.sleep_delay = sleep_delay
+
         self.last_query = None
+        self.last_results = {}
 
         self.browser = webdriver.Firefox()
 
@@ -25,6 +31,10 @@ class Jobmine(object):
 
 
     def find_jobs(self, query):
+        self.browser.get(search_url)
+
+        self._sleep(2)
+
         # save query in case they wanna redo the search
         self.last_query = query
 
@@ -38,26 +48,28 @@ class Jobmine(object):
         self._sleep(4)
 
         job_ids = self.get_job_ids()
+        jobs = [self.scrape_job(job_id) for job_id in job_ids]
+        self.last_results = jobs
 
-        jobs = [scrape_job(job_id) for job_id in job_ids]
+        return jobs
 
         
     def get_job_ids(self):
-        soup = bs4.BeautifulSoup(browser.page_source)
+        soup = bs4.BeautifulSoup(self.browser.page_source)
         job_spans = soup.findAll('span', id=lambda x: x and x.startswith('UW_CO_JOBRES_VW_UW_CO_JOB_ID'))
 
         return [span.text for span in job_spans]
 
 
     def scrape_job(self, job_id):
-        browser.get(job_url + job_id)
+        self.browser.get(job_url + job_id)
         
         self._sleep(2)
 
-        soup = bs4.BeautifulSoup(browser.page_source)
+        soup = bs4.BeautifulSoup(self.browser.page_source)
 
         job_data = {
-            'job_id': job_id
+            'job_id': job_id,
             'posting open date': soup.find(id = "UW_CO_JOBDTL_VW_UW_CO_CHAR_EDATE").text,
             'last day to apply': soup.find(id = "UW_CO_JOBDTL_VW_UW_CO_CHAR_DATE").text,
             'emp job #': soup.find(id = "UW_CO_JOBDTL_VW_UW_CO_EMPOWN_JOBNO").text,
@@ -65,7 +77,7 @@ class Jobmine(object):
             'job title': soup.find(id = "UW_CO_JOBDTL_VW_UW_CO_JOB_TITLE").text,
             'work location': soup.find(id = "UW_CO_JOBDTL_VW_UW_CO_WORK_LOCATN").text,
             'grades': soup.find(id = "UW_CO_JOBDTL_DW_UW_CO_MARKS_DRVD").text,
-            'available openings': intsoup.find(id = "_VW_UW_CO_AVAIL_OPENGS").text,
+            'available openings': int(soup.find(id = "UW_CO_JOBDTL_VW_UW_CO_AVAIL_OPENGS").text),
             'disciplines': soup.find(id = "UW_CO_JOBDTL_DW_UW_CO_DESCR").text,
             'disciplines1': soup.find(id = "UW_CO_JOBDTL_DW_UW_CO_DESCR100").text,
             'levels': soup.find(id = "UW_CO_JOBDTL_DW_UW_CO_DESCR_100").text,
@@ -79,12 +91,12 @@ class Jobmine(object):
 
 
     def _set_text_search_params(self, query):
-        payload = {
+        data = {
             'UW_CO_JOBSRCH_UW_CO_WT_SESSION': query.term,
             'UW_CO_JOBSRCH_UW_CO_EMPLYR_NAME': query.employer_name,
             'UW_CO_JOBSRCH_UW_CO_JOB_TITLE': query.job_title
         }
-        self.find_eles_by_id_and_send(payload)
+        self.find_eles_by_id_and_send(data)
 
 
     def _set_disciplines(self, query):
@@ -96,12 +108,12 @@ class Jobmine(object):
 
     def _set_levels(self, query):
         level_elements = {
-            'junior': browser.find_element_by_id("UW_CO_JOBSRCH_UW_CO_COOP_JR")
-            'intermdiate': browser.find_element_by_id("UW_CO_JOBSRCH_UW_CO_COOP_INT")
-            'senior': browser.find_element_by_id("UW_CO_JOBSRCH_UW_CO_COOP_SR")
+            'junior': self.browser.find_element_by_id("UW_CO_JOBSRCH_UW_CO_COOP_JR"),
+            'intermdiate': self.browser.find_element_by_id("UW_CO_JOBSRCH_UW_CO_COOP_INT"),
+            'senior': self.browser.find_element_by_id("UW_CO_JOBSRCH_UW_CO_COOP_SR")
         }
 
-        for name, ele in level_elements.iteritems():
+        for name, ele in level_elements.items():
             if (name in query.disciplines and not ele.is_selected()) or \
                (name not in query.disciplines and ele.is_selected()):
                ele.click()
@@ -111,16 +123,17 @@ class Jobmine(object):
         self.browser.get(login_url)
         self._sleep(2)
 
-        payload = {'user_id': self.user_id, 'pwd': self.password}
-        self.find_eles_by_id_and_send(payload)
-
-        browser.find_element_by_id("login").find_element_by_xpath("//input[@type='submit'][@name='submit']").submit()
-
-
-    def find_eles_by_id_and_send(self, payload):
-        for id, key in payload.iteritems():
-            self.browser.find_element_by_id(data[id]).send_keys(data[key])
+        data = {'userid': self.username, 'pwd': self.password}
+        self.find_eles_by_id_and_send(data)
+     
+        self.browser.find_element_by_id("login").find_element_by_xpath("//input[@type='submit'][@name='submit']").submit()
 
 
-    def _sleep(t):
+    def find_eles_by_id_and_send(self, data):
+        for id in data:
+            self.browser.find_element_by_id(id).send_keys(data[id])
+
+
+    def _sleep(self, t):
         time.sleep(self.sleep_delay + t)
+
