@@ -57,8 +57,13 @@ class Jobmine(object):
     def get_job_ids(self):
         soup = bs4.BeautifulSoup(self.browser.page_source)
         job_spans = soup.findAll('span', id=lambda x: x and x.startswith('UW_CO_JOBRES_VW_UW_CO_JOB_ID'))
+        job_ids = [span.text for span in job_spans]
 
-        return [span.text for span in job_spans]
+        # if no results, there is still one row in the table which we can filter out
+        if job_ids == ['\xa0']:
+            return []
+
+        return job_ids
 
 
     def scrape_job(self, job_id):
@@ -96,7 +101,7 @@ class Jobmine(object):
             'UW_CO_JOBSRCH_UW_CO_EMPLYR_NAME': query.employer_name,
             'UW_CO_JOBSRCH_UW_CO_JOB_TITLE': query.job_title
         }
-        self.find_eles_by_id_and_send(data)
+        self._find_eles_by_id_and_send(data)
 
 
     def _set_disciplines(self, query):
@@ -124,14 +129,17 @@ class Jobmine(object):
         self._sleep(2)
 
         data = {'userid': self.username, 'pwd': self.password}
-        self.find_eles_by_id_and_send(data)
+        self._find_eles_by_id_and_send(data)
      
         self.browser.find_element_by_id("login").find_element_by_xpath("//input[@type='submit'][@name='submit']").submit()
 
 
-    def find_eles_by_id_and_send(self, data):
+    def _find_eles_by_id_and_send(self, data):
         for id in data:
-            self.browser.find_element_by_id(id).send_keys(data[id])
+            ele = self.browser.find_element_by_id(id)
+
+            ele.clear()
+            ele.send_keys(data[id])
 
 
     def _sleep(self, t):
