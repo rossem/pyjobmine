@@ -5,7 +5,6 @@ login_url = "https://jobmine.ccol.uwaterloo.ca/psp/SS/EMPLOYEE/WORK/"
 job_url = "https://jobmine.ccol.uwaterloo.ca/psc/SS_2/EMPLOYEE/WORK/c/UW_CO_STUDENTS.UW_CO_JOBDTLS.GBL?UW_CO_JOB_ID="
 
 class JobmineQuery(object):
-
     def __init__(self, term = 1165, employer_name = "", job_title = "", disciplines = ["ENG-Software", "MATH-Computer Science", "MATH-Computing & Financial Management"], levels = ['junior', 'intermdiate', 'senior']):
         self.term = term
         self.employer_name = employer_name
@@ -13,16 +12,17 @@ class JobmineQuery(object):
         self.disciplines = disciplines
         self.levels = levels
 
-
 class Jobmine(object):
-
-    def __init__(self, username, password):
+    def __init__(self, username, password, sleep_delay = 0):
         self.username = username
         self.password = password
-        self.browser = webdriver.Firefox()
+        self.sleep_delay = sleep_delay
         self.last_query = None
 
+        self.browser = webdriver.Firefox()
+
         self._login()
+
 
     def find_jobs(self, query):
         # save query in case they wanna redo the search
@@ -35,7 +35,7 @@ class Jobmine(object):
 
         self.browser.find_element_by_id("UW_CO_JOBSRCHDW_UW_CO_DW_SRCHBTN").click()
 
-        time.sleep(4)
+        self._sleep(4)
 
         job_ids = self.get_job_ids()
 
@@ -48,10 +48,11 @@ class Jobmine(object):
 
         return [span.text for span in job_spans]
 
+
     def scrape_job(self, job_id):
         browser.get(job_url + job_id)
         
-        time.sleep(2)
+        self._sleep(2)
 
         soup = bs4.BeautifulSoup(browser.page_source)
 
@@ -85,11 +86,13 @@ class Jobmine(object):
         }
         self.find_eles_by_id_and_send(payload)
 
+
     def _set_disciplines(self, query):
         discip_xpath = "//select[@name='UW_CO_JOBSRCH_UW_CO_ADV_DISCP%d']/option[text()='%s']"
         
         for i in range(len(query.disciplines)):
             self.browser.find_element_by_xpath(discip_xpath % (i + 1, query.disciplines[i])).click()
+
 
     def _set_levels(self, query):
         level_elements = {
@@ -106,7 +109,7 @@ class Jobmine(object):
 
     def _login(self):
         self.browser.get(login_url)
-        self._await()
+        self._sleep(2)
 
         payload = {'user_id': self.user_id, 'pwd': self.password}
         self.find_eles_by_id_and_send(payload)
@@ -119,7 +122,5 @@ class Jobmine(object):
             self.browser.find_element_by_id(data[id]).send_keys(data[key])
 
 
-    def _await():
-        self.sleep(2)
-
-
+    def _sleep(t):
+        time.sleep(self.sleep_delay + t)
