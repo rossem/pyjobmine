@@ -1,12 +1,10 @@
 import time
 import bs4
+import urls
 
 from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException
 
-
-search_url = "https://jobmine.ccol.uwaterloo.ca/psc/SS/EMPLOYEE/WORK/c/UW_CO_STUDENTS.UW_CO_JOBSRCH" 
-login_url = "https://jobmine.ccol.uwaterloo.ca/psp/SS/EMPLOYEE/WORK/"
-job_url = "https://jobmine.ccol.uwaterloo.ca/psc/SS_2/EMPLOYEE/WORK/c/UW_CO_STUDENTS.UW_CO_JOBDTLS.GBL?UW_CO_JOB_ID="
 
 class JobmineQuery(object):
     def __init__(self, term = 1165, employer_name = "", job_title = "", disciplines = ["ENG-Software", "MATH-Computer Science", "MATH-Computing & Financial Mgm"], levels = ['junior', 'intermdiate', 'senior']):
@@ -16,7 +14,8 @@ class JobmineQuery(object):
         self.disciplines = disciplines
         self.levels = levels
 
-class Jobmine(object):
+
+class JobMine(object):
     def __init__(self, username, password, sleep_delay = 0):
         self.username = username
         self.password = password
@@ -25,13 +24,13 @@ class Jobmine(object):
         self.last_query = None
         self.last_results = {}
 
-        self.browser = webdriver.Firefox()
+        self.browser = webdriver.PhantomJS()
 
         self._login()
 
 
     def find_jobs(self, query):
-        self.browser.get(search_url)
+        self.browser.get(urls.search)
 
         self._sleep(2)
 
@@ -43,9 +42,11 @@ class Jobmine(object):
         self._set_text_search_params(query)
         self._set_levels(query)
 
+        self._sleep(0.5)
+
         self.browser.find_element_by_id("UW_CO_JOBSRCHDW_UW_CO_DW_SRCHBTN").click()
 
-        self._sleep(4)
+        self._sleep(2)
 
         job_ids = self.get_job_ids()
         jobs = [self.scrape_job(job_id) for job_id in job_ids]
@@ -55,9 +56,22 @@ class Jobmine(object):
 
         
     def get_job_ids(self):
-        soup = bs4.BeautifulSoup(self.browser.page_source)
-        job_spans = soup.findAll('span', id=lambda x: x and x.startswith('UW_CO_JOBRES_VW_UW_CO_JOB_ID'))
-        job_ids = [span.text for span in job_spans]
+        job_ids = []
+        no_pages_left = False
+
+        while not no_pages_left:
+            soup = bs4.BeautifulSoup(self.browser.page_source)
+            job_spans = soup.findAll('span', id=lambda x: x and x.startswith('UW_CO_JOBRES_VW_UW_CO_JOB_ID'))
+            job_ids.extend([span.text for span in job_spans])
+
+            # check if we are on the last page of search results 
+            try:
+                self.browser.find_element_by_id('UW_CO_JOBRES_VW$fdown$0').click()
+                self._sleep(0.1)
+            except NoSuchElementException:
+                break
+
+
 
         # if no results, there is still one row in the table which we can filter out
         if job_ids == ['\xa0']:
@@ -67,7 +81,7 @@ class Jobmine(object):
 
 
     def scrape_job(self, job_id):
-        self.browser.get(job_url + job_id)
+        self.browser.get(urls.job + job_id)
         
         self._sleep(2)
 
@@ -125,7 +139,7 @@ class Jobmine(object):
 
 
     def _login(self):
-        self.browser.get(login_url)
+        self.browser.get(urls.login)
         self._sleep(2)
 
         data = {'userid': self.username, 'pwd': self.password}
