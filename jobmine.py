@@ -7,8 +7,9 @@ from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 
 
-class JobmineQuery(object):
-    def __init__(self, term = 1165, employer_name = "", job_title = "", disciplines = ["ENG-Software", "MATH-Computer Science", "MATH-Computing & Financial Mgm"], levels = ['junior', 'intermdiate', 'senior']):
+class JobMineQuery(object):
+
+    def __init__(self, term, employer_name, job_title, disciplines, levels):
         self.term = term
         self.employer_name = employer_name
         self.job_title = job_title
@@ -17,6 +18,7 @@ class JobmineQuery(object):
 
 
 class JobMine(object):
+
     def __init__(self, username, password, sleep_delay = 0):
         self.username = username
         self.password = password
@@ -29,13 +31,36 @@ class JobMine(object):
 
         self._login()
 
+
+    def _login(self):
+        self.browser.get(urls.LOGIN)
+        self._sleep(2)
+
+        data = {'userid': self.username, 'pwd': self.password}
+        self._find_eles_by_id_and_send(data)
+
+        self.browser.find_element_by_id("login").find_element_by_xpath("//input[@type='submit'][@name='submit']").submit()
+
     
     def close(self):
         self.browser.close()
         self.browser = None
 
 
-    def find_jobs(self, query):
+    def find_jobs_with_last_query(self, query):
+        if self.last_query is not None:
+            self.find_jobs_with_query(self.last_query)
+        else:
+            print('You have not made a job query yet.')
+
+
+    def find_jobs(self, term = 1165, employer_name = "", job_title = "",
+                  disciplines = ["ENG-Software", "MATH-Computer Science", "MATH-Computing & Financial Mgm"],
+                  levels = ['junior', 'intermdiate', 'senior']):
+        self.find_jobs_with_query(JobMineQuery(term, employer_name, job_title, disciplines, levels))
+
+
+    def find_jobs_with_query(self, query):
         self.browser.get(urls.SEARCH)
 
         self._sleep(2)
@@ -140,16 +165,6 @@ class JobMine(object):
             if (name in query.disciplines and not ele.is_selected()) or \
                (name not in query.disciplines and ele.is_selected()):
                ele.click()
-
-
-    def _login(self):
-        self.browser.get(urls.LOGIN)
-        self._sleep(2)
-
-        data = {'userid': self.username, 'pwd': self.password}
-        self._find_eles_by_id_and_send(data)
-     
-        self.browser.find_element_by_id("login").find_element_by_xpath("//input[@type='submit'][@name='submit']").submit()
 
 
     def _find_eles_by_id_and_send(self, data):
