@@ -1,6 +1,7 @@
 import time
 import bs4
 import urls
+import ids
 
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
@@ -30,7 +31,7 @@ class JobMine(object):
 
 
     def find_jobs(self, query):
-        self.browser.get(urls.search)
+        self.browser.get(urls.SEARCH)
 
         self._sleep(2)
 
@@ -44,7 +45,7 @@ class JobMine(object):
 
         self._sleep(0.5)
 
-        self.browser.find_element_by_id("UW_CO_JOBSRCHDW_UW_CO_DW_SRCHBTN").click()
+        self.browser.find_element_by_id(ids.SEARCH_BUTTON).click()
 
         self._sleep(2)
 
@@ -61,17 +62,15 @@ class JobMine(object):
 
         while not no_pages_left:
             soup = bs4.BeautifulSoup(self.browser.page_source)
-            job_spans = soup.findAll('span', id=lambda x: x and x.startswith('UW_CO_JOBRES_VW_UW_CO_JOB_ID'))
+            job_spans = soup.findAll('span', id=lambda x: x and x.startswith(ids.JOB_ID_GENERIC))
             job_ids.extend([span.text for span in job_spans])
 
             # check if we are on the last page of search results 
             try:
-                self.browser.find_element_by_id('UW_CO_JOBRES_VW$fdown$0').click()
+                self.browser.find_element_by_id(ids.NEXT_PAGE_BUTTON).click()
                 self._sleep(0.1)
             except NoSuchElementException:
-                break
-
-
+                no_pages_left = True
 
         # if no results, there is still one row in the table which we can filter out
         if job_ids == ['\xa0']:
@@ -81,29 +80,29 @@ class JobMine(object):
 
 
     def scrape_job(self, job_id):
-        self.browser.get(urls.job + job_id)
+        self.browser.get(urls.JOB_PROFILE + job_id)
         
         self._sleep(2)
 
         soup = bs4.BeautifulSoup(self.browser.page_source)
 
         job_data = {
-            'job_id': job_id,
-            'posting open date': soup.find(id = "UW_CO_JOBDTL_VW_UW_CO_CHAR_EDATE").text,
-            'last day to apply': soup.find(id = "UW_CO_JOBDTL_VW_UW_CO_CHAR_DATE").text,
-            'emp job #': soup.find(id = "UW_CO_JOBDTL_VW_UW_CO_EMPOWN_JOBNO").text,
-            'employer': soup.find(id = "UW_CO_JOBDTL_DW_UW_CO_EMPUNITDIV").text,
-            'job title': soup.find(id = "UW_CO_JOBDTL_VW_UW_CO_JOB_TITLE").text,
-            'work location': soup.find(id = "UW_CO_JOBDTL_VW_UW_CO_WORK_LOCATN").text,
-            'grades': soup.find(id = "UW_CO_JOBDTL_DW_UW_CO_MARKS_DRVD").text,
-            'available openings': int(soup.find(id = "UW_CO_JOBDTL_VW_UW_CO_AVAIL_OPENGS").text),
-            'disciplines': soup.find(id = "UW_CO_JOBDTL_DW_UW_CO_DESCR").text,
-            'disciplines1': soup.find(id = "UW_CO_JOBDTL_DW_UW_CO_DESCR100").text,
-            'levels': soup.find(id = "UW_CO_JOBDTL_DW_UW_CO_DESCR_100").text,
-            'hiring process support': soup.find(id = "UW_CO_OD_DV2_UW_CO_NAME").text,
-            'work term support': soup.find(id = "UW_CO_OD_DV2_UW_CO_NAME2").text,
-            'comments': soup.find(id = "UW_CO_JOBDTL_VW_UW_CO_JOB_SUMMARY").text,
-            'job description': soup.find(id = "UW_CO_JOBDTL_VW_UW_CO_JOB_DESCR").text
+            'job_id':                 job_id,
+            'posting_open_date':      soup.find(id = ids.POSTING_OPEN_DATE).text,
+            'last_day_to_apply':      soup.find(id = ids.LAST_DAY_TO_APPLY).text,
+            'employer_job_number':    soup.find(id = ids.EMPLOYER_JOB_NUMBER).text,
+            'employer':               soup.find(id = ids.EMPLOYER).text,
+            'job_title':              soup.find(id = ids.JOB_TITLE).text,
+            'work_location':          soup.find(id = ids.WORK_LOCATION).text,
+            'grades':                 soup.find(id = ids.GRADES).text,
+            'available_openings':     int(soup.find(id = ids.AVAILABLE_OPENINGS).text),
+            'disciplines':            soup.find(id = ids.DISCIPLINES).text,
+            'disciplines_more':       soup.find(id = ids.DISCIPLINES_MORE).text,
+            'levels':                 soup.find(id = ids.LEVELS).text,
+            'hiring_process_support': soup.find(id = ids.HIRING_PROCESS_SUPPORT).text,
+            'work_term_support':      soup.find(id = ids.WORK_TERM_SUPPORT).text,
+            'comments':               soup.find(id = ids.COMMENTS).text,
+            'job_description':        soup.find(id = ids.JOB_DESCRIPTION).text
         }
 
         return job_data
@@ -139,7 +138,7 @@ class JobMine(object):
 
 
     def _login(self):
-        self.browser.get(urls.login)
+        self.browser.get(urls.LOGIN)
         self._sleep(2)
 
         data = {'userid': self.username, 'pwd': self.password}
