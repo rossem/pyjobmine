@@ -29,6 +29,11 @@ class JobMine(object):
 
         self._login()
 
+    
+    def close(self):
+        self.browser.close()
+        self.browser = None
+
 
     def find_jobs(self, query):
         self.browser.get(urls.SEARCH)
