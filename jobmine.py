@@ -1,10 +1,20 @@
 import time
-import bs4
 import urls
 import ids
 
+from bs4 import BeautifulSoup
+from contextlib import contextmanager
 from selenium import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support.expected_conditions import staleness_of
 from selenium.common.exceptions import NoSuchElementException
+
+
+HTML_PARSER = 'html.parser'
+
+
+class NoQueryCachedException(Exception):
+    pass
 
 
 class JobMineQuery(object):
@@ -31,10 +41,9 @@ class JobMine(object):
 
         self._login()
 
-
     def _login(self):
-        self.browser.get(urls.LOGIN)
-        self._sleep(2)
+        with self.wait_for_page_load():
+            self.browser.get(urls.LOGIN)
 
         data = {'userid': self.username, 'pwd': self.password}
         self._find_eles_by_id_and_send(data)
@@ -52,7 +61,7 @@ class JobMine(object):
         if self.last_query is not None:
             return self.find_jobs_with_query(self.last_query)
         else:
-            print('You have not made a job query yet.')
+            raise NoQueryCachedException('You have not made a query yet')
 
     def find_jobs(self, term=1165, employer_name="", job_title="",
                   disciplines=["ENG-Software", "MATH-Computer Science", "MATH-Computing & Financial Mgm"],
@@ -61,19 +70,19 @@ class JobMine(object):
         return self.find_jobs_with_query(jmquery)
 
     def find_jobs_with_query(self, query):
-        self.browser.get(urls.SEARCH)
-
-        self._sleep(2)
+        with self.wait_for_page_load():
+            self.browser.get(urls.SEARCH)
 
         # inject search parameters into page
         self._set_disciplines(query)
         self._set_text_search_params(query)
         self._set_levels(query)
 
+        # TODO: make this better
+        # problem is that it doesn't load a new page but just changes some components
+        # also something like this happens in get_job_ids
         self._sleep(0.5)
-
         self.browser.find_element_by_id(ids.SEARCH_BUTTON).click()
-
         self._sleep(2)
 
         job_ids = self.get_job_ids()
@@ -87,31 +96,26 @@ class JobMine(object):
 
     def get_job_ids(self):
         job_ids = []
-        no_pages_left = False
 
-        while not no_pages_left:
-            soup = bs4.BeautifulSoup(self.browser.page_source)
+        while True:
+            soup = BeautifulSoup(self.browser.page_source, HTML_PARSER)
             job_spans = soup.findAll('span', id=lambda x: x and x.startswith(ids.JOB_ID_GENERIC))
-            job_ids.extend([span.text for span in job_spans])
+            job_ids.extend([span.text for span in job_spans if span.text != u'\xa0'])
 
             # check if we are on the last page of search results
             try:
                 self.browser.find_element_by_id(ids.NEXT_PAGE_BUTTON).click()
                 self._sleep(0.5)
             except NoSuchElementException:
-                no_pages_left = True
-
-        # if no results, there is still one row in the table which we can filter out
-        if job_ids == ['\xa0']:
-            return []
+                break
 
         return job_ids
 
     def scrape_job(self, job_id):
-        self.browser.get(urls.JOB_PROFILE + job_id)
-        self._sleep(1)
+        with self.wait_for_page_load():
+            self.browser.get(urls.JOB_PROFILE + job_id)
 
-        soup = bs4.BeautifulSoup(self.browser.page_source)
+        soup = BeautifulSoup(self.browser.page_source, HTML_PARSER)
         job_data = {
             'job_id':                 job_id,
             'posting_open_date':      soup.find(id = ids.POSTING_OPEN_DATE).text,
@@ -152,9 +156,9 @@ class JobMine(object):
 
     def _set_levels(self, query):
         level_elements = {
-            'junior': self.browser.find_element_by_id("UW_CO_JOBSRCH_UW_CO_COOP_JR"),
-            'intermdiate': self.browser.find_element_by_id("UW_CO_JOBSRCH_UW_CO_COOP_INT"),
-            'senior': self.browser.find_element_by_id("UW_CO_JOBSRCH_UW_CO_COOP_SR")
+            'junior': self.browser.find_element_by_id(ids.LEVEL_JUNIOR),
+            'intermdiate': self.browser.find_element_by_id(ids.LEVEL_INTERMEDIATE),
+            'senior': self.browser.find_element_by_id(ids.LEVEL_SENIOR)
         }
 
         for name, ele in level_elements.items():
@@ -169,6 +173,11 @@ class JobMine(object):
             ele.clear()
             ele.send_keys(data[_id])
 
+    @contextmanager
+    def wait_for_page_load(self, timeout=10):
+        old_page = self.browser.find_element_by_tag_name('html')
+        yield
+        WebDriverWait(self.browser, timeout).until(staleness_of(old_page))
+
     def _sleep(self, t):
         time.sleep(self.sleep_delay + t)
-
