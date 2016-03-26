@@ -78,12 +78,10 @@ class JobMine(object):
         self._set_text_search_params(query)
         self._set_levels(query)
 
-        # TODO: make this better
-        # problem is that it doesn't load a new page but just changes some components
-        # also something like this happens in get_job_ids
-        self._sleep(0.5)
-        self.browser.find_element_by_id(ids.SEARCH_BUTTON).click()
-        self._sleep(2)
+        # basically wait until search has been executed and
+        # jobmine has reload the first job component
+        with self.wait_for_element_stale(element_id=ids.FIRST_JOB):
+            self.browser.find_element_by_id(ids.SEARCH_BUTTON).click()
 
         job_ids = self.get_job_ids()
         jobs = [self.scrape_job(job_id) for job_id in job_ids]
@@ -104,7 +102,7 @@ class JobMine(object):
 
             # check if we are on the last page of search results
             try:
-                with self.wait_for_element_stale(ids.FIRST_JOB):
+                with self.wait_for_element_stale(element_id=ids.FIRST_JOB):
                     self.browser.find_element_by_id(ids.NEXT_PAGE_BUTTON).click()
             except NoSuchElementException:
                 break
@@ -184,6 +182,3 @@ class JobMine(object):
         element = self.browser.find_element_by_id(element_id)
         yield
         WebDriverWait(self.browser, timeout).until(staleness_of(element))
-
-    def _sleep(self, t):
-        time.sleep(self.sleep_delay + t)
