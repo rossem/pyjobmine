@@ -49,7 +49,7 @@ class JobMine(object):
         self._find_eles_by_id_and_send(data)
 
         self.browser \
-            .find_element_by_id("login") \
+            .find_element_by_id(ids.LOGIN) \
             .find_element_by_xpath("//input[@type='submit'][@name='submit']") \
             .submit()
 
@@ -104,8 +104,8 @@ class JobMine(object):
 
             # check if we are on the last page of search results
             try:
-                self.browser.find_element_by_id(ids.NEXT_PAGE_BUTTON).click()
-                self._sleep(0.5)
+                with self.wait_for_element_stale(ids.FIRST_JOB):
+                    self.browser.find_element_by_id(ids.NEXT_PAGE_BUTTON).click()
             except NoSuchElementException:
                 break
 
@@ -178,6 +178,12 @@ class JobMine(object):
         old_page = self.browser.find_element_by_tag_name('html')
         yield
         WebDriverWait(self.browser, timeout).until(staleness_of(old_page))
+
+    @contextmanager
+    def wait_for_element_stale(self, element_id, timeout=10):
+        element = self.browser.find_element_by_id(element_id)
+        yield
+        WebDriverWait(self.browser, timeout).until(staleness_of(element))
 
     def _sleep(self, t):
         time.sleep(self.sleep_delay + t)
