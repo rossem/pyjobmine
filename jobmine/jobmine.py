@@ -39,10 +39,8 @@ class JobMine(object):
         self.browser = webdriver.Firefox()
         self._login()
 
-
     def __del__(self):
         self.browser.quit()
-
 
     def _login(self):
         with self.wait_for_page_load():
@@ -63,20 +61,17 @@ class JobMine(object):
         except NoSuchElementException:
             pass
 
-
     def find_jobs_with_last_query(self):
         if self.last_query is not None:
             return self.find_jobs_with_query(self.last_query)
         else:
             raise NoQueryCachedException('You have not made a query yet')
 
-
     def find_jobs(self, term=1165, employer_name="", job_title="",
                   disciplines=["ENG-Software", "MATH-Computer Science", "MATH-Computing & Financial Mgm"],
                   levels=['junior', 'intermdiate', 'senior']):
         jmquery = JobMineQuery(term, employer_name, job_title, disciplines, levels)
         return self.find_jobs_with_query(jmquery)
-
 
     def find_jobs_with_query(self, query):
         with self.wait_for_page_load():
@@ -104,7 +99,6 @@ class JobMine(object):
 
         return jobs
 
-
     def get_job_ids(self):
         job_ids = []
 
@@ -121,7 +115,6 @@ class JobMine(object):
                 break
 
         return job_ids
-
 
     def scrape_job(self, job_id):
         with self.wait_for_page_load():
@@ -152,7 +145,6 @@ class JobMine(object):
 
         return job_data
 
-
     def _set_text_search_params(self, query):
         data = {
             'UW_CO_JOBSRCH_UW_CO_WT_SESSION': query.term,
@@ -161,13 +153,11 @@ class JobMine(object):
         }
         self._find_eles_by_id_and_send(data)
 
-
     def _set_disciplines(self, query):
         discip_xpath = "//select[@name='UW_CO_JOBSRCH_UW_CO_ADV_DISCP%d']/option[text()='%s']"
 
         for i in range(len(query.disciplines)):
             self.browser.find_element_by_xpath(discip_xpath % (i + 1, query.disciplines[i])).click()
-
 
     def _set_levels(self, query):
         level_elements = {
@@ -181,7 +171,6 @@ class JobMine(object):
                (name not in query.disciplines and ele.is_selected()):
                 ele.click()
 
-
     def _find_eles_by_id_and_send(self, data):
         for _id in data:
             ele = self.browser.find_element_by_id(_id)
@@ -189,13 +178,11 @@ class JobMine(object):
             ele.clear()
             ele.send_keys(data[_id])
 
-
     @contextmanager
     def wait_for_page_load(self, timeout=10):
         old_page = self.browser.find_element_by_tag_name('html')
         yield
         WebDriverWait(self.browser, timeout).until(staleness_of(old_page))
-
 
     @contextmanager
     def wait_for_element_stale(self, element_id, timeout=10):
