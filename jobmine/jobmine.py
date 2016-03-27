@@ -2,6 +2,7 @@ import time
 
 from jobmine import urls
 from jobmine import ids
+from jobmine.exceptions import UnauthorizedException, NoQueryCachedException
 
 from bs4 import BeautifulSoup
 from contextlib import contextmanager
@@ -12,10 +13,6 @@ from selenium.common.exceptions import NoSuchElementException
 
 
 HTML_PARSER = 'html.parser'
-
-
-class NoQueryCachedException(Exception):
-    pass
 
 
 class JobMineQuery(object):
@@ -38,7 +35,8 @@ class JobMine(object):
         self.last_query = None
         self.last_results = {}
 
-        self.browser = webdriver.PhantomJS('phantomjs')
+        #self.browser = webdriver.PhantomJS('phantomjs')
+        self.browser = webdriver.Firefox()
         self._login()
 
 
@@ -53,10 +51,17 @@ class JobMine(object):
         data = {'userid': self.username, 'pwd': self.password}
         self._find_eles_by_id_and_send(data)
 
-        self.browser \
-            .find_element_by_id(ids.LOGIN) \
-            .find_element_by_xpath("//input[@type='submit'][@name='submit']") \
-            .submit()
+        with self.wait_for_page_load():
+            self.browser \
+                .find_element_by_id(ids.LOGIN) \
+                .find_element_by_xpath("//input[@type='submit'][@name='submit']") \
+                .submit()
+
+        try:
+            login_err = self.browser.find_element_by_class_name('PSERRORTEXT').text
+            raise UnauthorizedException(login_err)
+        except NoSuchElementException:
+            pass
 
 
     def find_jobs_with_last_query(self):
@@ -82,10 +87,13 @@ class JobMine(object):
         self._set_text_search_params(query)
         self._set_levels(query)
 
+        #time.sleep(0.5)
+
         # basically wait until search has been executed and
         # jobmine has reload the first job component
         with self.wait_for_element_stale(element_id=ids.FIRST_JOB):
             self.browser.find_element_by_id(ids.SEARCH_BUTTON).click()
+            #time.sleep(2)
 
         job_ids = self.get_job_ids()
         jobs = [self.scrape_job(job_id) for job_id in job_ids]
