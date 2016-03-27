@@ -4,6 +4,8 @@ from jobmine import urls
 from jobmine import ids
 from jobmine.exceptions import LoginFailed, NoPreviousQuery
 
+from concurrent import futures
+from itertools import zip_longest
 from bs4 import BeautifulSoup
 from contextlib import contextmanager
 from selenium import webdriver
@@ -13,7 +15,15 @@ from selenium.common.exceptions import NoSuchElementException
 
 
 HTML_PARSER = 'html.parser'
+JOBS_PER_THREAD = 10
+NUM_THREADS = 10
 
+
+def grouper(iterable, n, fillvalue=None):
+    "Collect data into fixed-length chunks or blocks"
+    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
+    args = [iter(iterable)] * n
+    return zip_longest(*args, fillvalue=fillvalue)
 
 class JobMineQuery(object):
 
@@ -27,10 +37,9 @@ class JobMineQuery(object):
 
 class JobMine(object):
 
-    def __init__(self, username, password, sleep_delay=0):
-        self.sleep_delay = sleep_delay
+    def __init__(self, username, password):
         self.last_query = None
-        self.last_results = {}
+        self.results = []
 
         #self.browser = webdriver.PhantomJS('phantomjs')
         self.browser = webdriver.Firefox()
@@ -59,6 +68,10 @@ class JobMine(object):
             raise LoginFailed(login_err)
         except NoSuchElementException:
             self.authorized = True
+            self._cache_token_cookie()
+
+    def _cache_token_cookie(self):
+        self.token = next(cookie for cookie in self.browser.get_cookies() if cookie['name'] == 'PS_TOKEN')
 
     def find_jobs_with_last_query(self):
         if self.last_query is not None:
@@ -79,7 +92,7 @@ class JobMine(object):
         # inject search parameters into page
         self._set_disciplines(query)
         self._set_text_search_params(query)
-        self._set_levels(query)
+        #self._set_levels(query)
 
         #time.sleep(0.5)
 
@@ -90,7 +103,16 @@ class JobMine(object):
             #time.sleep(2)
 
         job_ids = self.get_job_ids()
-        jobs = [self.scrape_job(job_id) for job_id in job_ids]
+
+        grouped_job_ids = self._group_job_ids(job_ids)
+        executor = futures.ThreadPoolExecutor(NUM_THREADS)
+        job_futures = [executor.submit(self.scrape_details_for_jobs, group) for group in grouped_job_ids]
+
+
+        #jobs = [self.scrape_job(job_id) for job_id in job_ids]
+
+        # flatten that shit (i wish this was Scala :/ )
+        jobs = [job_future for f in futures.as_completed(job_futures) for job_future in f.result()]
 
         # cache last query and results
         self.last_results = jobs
@@ -115,34 +137,55 @@ class JobMine(object):
 
         return job_ids
 
-    def scrape_job(self, job_id):
-        with self.wait_for_page_load():
-            self.browser.get(urls.JOB_PROFILE + job_id)
+    def scrape_details_for_jobs(self, job_ids):
+        # authorize temp browser based on main browser
+        temp_browser = webdriver.Firefox() 
+        temp_browser.get(urls.LOGIN)
+        temp_browser.add_cookie(self.token)
 
-        soup = BeautifulSoup(self.browser.page_source, HTML_PARSER)
-        job_data = {
-            'job_id':                 job_id,
-            'posting_open_date':      soup.find(id = ids.POSTING_OPEN_DATE).text,
-            'last_day_to_apply':      soup.find(id = ids.LAST_DAY_TO_APPLY).text,
-            'employer_job_number':    soup.find(id = ids.EMPLOYER_JOB_NUMBER).text,
-            'employer':               soup.find(id = ids.EMPLOYER).text,
-            'job_title':              soup.find(id = ids.JOB_TITLE).text,
-            'work_location':          soup.find(id = ids.WORK_LOCATION).text,
-            'available_openings':     int(soup.find(id = ids.AVAILABLE_OPENINGS).text),
-            'hiring_process_support': soup.find(id = ids.HIRING_PROCESS_SUPPORT).text,
-            'work_term_support':      soup.find(id = ids.WORK_TERM_SUPPORT).text,
-            'comments':               soup.find(id = ids.COMMENTS).text,
-            'job_description':        soup.find(id = ids.JOB_DESCRIPTION).text
-        }
+        jobs = []
 
-        disciplines = soup.find(id = ids.DISCIPLINES).text
-        disciplines_more = soup.find(id = ids.DISCIPLINES_MORE).text
-        job_data['disciplines'] = (disciplines + ', ' + disciplines_more).split(', ')
+        for job_id in job_ids:
+            if job_id is None:
+                break
 
-        job_data['levels'] = soup.find(id = ids.LEVELS).text.split(', ')
-        job_data['grades_required'] = soup.find(id = ids.GRADES).text == 'Required'
+            with self.wait_for_page_load_with_browser(temp_browser):
+                temp_browser.get(urls.JOB_PROFILE + job_id)
 
-        return job_data
+            soup = BeautifulSoup(temp_browser.page_source, HTML_PARSER)
+            job_data = {
+                'job_id':                 job_id,
+                'posting_open_date':      soup.find(id = ids.POSTING_OPEN_DATE).text,
+                'last_day_to_apply':      soup.find(id = ids.LAST_DAY_TO_APPLY).text,
+                'employer_job_number':    soup.find(id = ids.EMPLOYER_JOB_NUMBER).text,
+                'employer':               soup.find(id = ids.EMPLOYER).text,
+                'job_title':              soup.find(id = ids.JOB_TITLE).text,
+                'work_location':          soup.find(id = ids.WORK_LOCATION).text,
+                'available_openings':     int(soup.find(id = ids.AVAILABLE_OPENINGS).text),
+                'hiring_process_support': soup.find(id = ids.HIRING_PROCESS_SUPPORT).text,
+                'work_term_support':      soup.find(id = ids.WORK_TERM_SUPPORT).text,
+                'comments':               soup.find(id = ids.COMMENTS).text,
+                'job_description':        soup.find(id = ids.JOB_DESCRIPTION).text
+            }
+
+            disciplines = soup.find(id = ids.DISCIPLINES).text
+            disciplines_more = soup.find(id = ids.DISCIPLINES_MORE).text
+            job_data['disciplines'] = (disciplines + ', ' + disciplines_more).split(', ')
+
+            job_data['levels'] = soup.find(id = ids.LEVELS).text.split(', ')
+            job_data['grades_required'] = soup.find(id = ids.GRADES).text == 'Required'
+
+            jobs.append(job_data)
+
+        temp_browser.quit()
+        return jobs
+
+    def _group_job_ids(self, job_ids):
+        num_jobs = len(job_ids)
+        if num_jobs > NUM_THREADS * JOBS_PER_THREAD:
+            return grouper(job_ids, int(num_jobs / NUM_THREADS) + 1)
+        else:
+            return grouper(job_ids, JOBS_PER_THREAD)
 
     def _set_text_search_params(self, query):
         data = {
@@ -182,6 +225,12 @@ class JobMine(object):
         old_page = self.browser.find_element_by_tag_name('html')
         yield
         WebDriverWait(self.browser, timeout).until(staleness_of(old_page))
+
+    @contextmanager
+    def wait_for_page_load_with_browser(self, browser, timeout=10):
+        old_page = browser.find_element_by_tag_name('html')
+        yield
+        WebDriverWait(browser, timeout).until(staleness_of(old_page))
 
     @contextmanager
     def wait_for_element_stale(self, element_id, timeout=10):
