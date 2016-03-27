@@ -2,7 +2,7 @@ import time
 
 from jobmine import urls
 from jobmine import ids
-from jobmine.exceptions import UnauthorizedException, NoQueryCachedException
+from jobmine.exceptions import LoginFailed, NoPreviousQuery
 
 from bs4 import BeautifulSoup
 from contextlib import contextmanager
@@ -28,25 +28,24 @@ class JobMineQuery(object):
 class JobMine(object):
 
     def __init__(self, username, password, sleep_delay=0):
-        self.username = username
-        self.password = password
         self.sleep_delay = sleep_delay
-
         self.last_query = None
         self.last_results = {}
 
         #self.browser = webdriver.PhantomJS('phantomjs')
         self.browser = webdriver.Firefox()
-        self._login()
+
+        self.authorized = False
+        self.login(username, password) # on success sets authorized to True
 
     def __del__(self):
         self.browser.quit()
 
-    def _login(self):
+    def login(self, username, password):
         with self.wait_for_page_load():
             self.browser.get(urls.LOGIN)
 
-        data = {'userid': self.username, 'pwd': self.password}
+        data = {'userid': username, 'pwd': password}
         self._find_eles_by_id_and_send(data)
 
         with self.wait_for_page_load():
@@ -57,15 +56,15 @@ class JobMine(object):
 
         try:
             login_err = self.browser.find_element_by_class_name('PSERRORTEXT').text
-            raise UnauthorizedException(login_err)
+            raise LoginFailed(login_err)
         except NoSuchElementException:
-            pass
+            self.authorized = True
 
     def find_jobs_with_last_query(self):
         if self.last_query is not None:
             return self.find_jobs_with_query(self.last_query)
         else:
-            raise NoQueryCachedException('You have not made a query yet')
+            raise NoPreviousQuery('You have not made a query yet')
 
     def find_jobs(self, term=1165, employer_name="", job_title="",
                   disciplines=["ENG-Software", "MATH-Computer Science", "MATH-Computing & Financial Mgm"],

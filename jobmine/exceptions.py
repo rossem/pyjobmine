@@ -1,7 +1,7 @@
-class UnauthorizedException(Exception):
+class LoginFailed(Exception):
     pass
 
 
-class NoQueryCachedException(Exception):
+class NoPreviousQuery(Exception):
     pass
 
