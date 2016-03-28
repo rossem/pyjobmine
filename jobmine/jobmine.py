@@ -3,6 +3,7 @@ import json
 
 from jobmine import urls
 from jobmine import ids
+from jobmine.locations import UNITED_STATES
 from jobmine.exceptions import LoginFailed
 
 from unidecode import unidecode
@@ -72,17 +73,17 @@ class Job(object):
         soup = BeautifulSoup(self.browser.page_source, HTML_PARSER)
 
         detailed_data = {
-            'posting_open_date':      soup.find(id = ids.POSTING_OPEN_DATE).text,
-            'last_day_to_apply':      soup.find(id = ids.LAST_DAY_TO_APPLY).text,
-            'employer_job_number':    soup.find(id = ids.EMPLOYER_JOB_NUMBER).text,
-            'employer':               soup.find(id = ids.EMPLOYER).text,
-            'job_title':              soup.find(id = ids.JOB_TITLE).text,
-            'work_location':          soup.find(id = ids.WORK_LOCATION).text,
-            'available_openings':     soup.find(id = ids.AVAILABLE_OPENINGS).text,
-            'hiring_process_support': soup.find(id = ids.HIRING_PROCESS_SUPPORT).text,
-            'work_term_support':      soup.find(id = ids.WORK_TERM_SUPPORT).text,
-            'comments':               soup.find(id = ids.COMMENTS).text,
-            'job_description':        soup.find(id = ids.JOB_DESCRIPTION).text
+            'posting_open_date':      soup.find(id = ids.PROFILE_POSTING_OPEN_DATE).text,
+            'last_day_to_apply':      soup.find(id = ids.PROFILE_LAST_DAY_TO_APPLY).text,
+            'employer_job_number':    soup.find(id = ids.PROFILE_EMPLOYER_JOB_NUMBER).text,
+            'employer':               soup.find(id = ids.PROFILE_EMPLOYER).text,
+            'job_title':              soup.find(id = ids.PROFILE_JOB_TITLE).text,
+            'work_location':          soup.find(id = ids.PROFILE_WORK_LOCATION).text,
+            'available_openings':     soup.find(id = ids.PROFILE_AVAILABLE_OPENINGS).text,
+            'hiring_process_support': soup.find(id = ids.PROFILE_HIRING_PROCESS_SUPPORT).text,
+            'work_term_support':      soup.find(id = ids.PROFILE_WORK_TERM_SUPPORT).text,
+            'comments':               soup.find(id = ids.PROFILE_COMMENTS).text,
+            'job_description':        soup.find(id = ids.PROFILE_JOB_DESCRIPTION).text
         }
 
         disciplines = soup.find(id = ids.DISCIPLINES).text
@@ -137,20 +138,16 @@ class JobMine(object):
 
         return self.num_apps_remaining
 
-    def find_jobs(self, term=1165, employer_name='', job_title='',
+    def find_jobs(self, term=1165, employer_name='', job_title='', location = UNITED_STATES,
                   disciplines=['ENG-Software', 'MATH-Computer Science', 'MATH-Computing & Financial Mgm'],
                   levels=['junior', 'intermediate', 'senior']):
-        jmquery = JobMineQuery(term, employer_name, job_title, disciplines, levels)
-        return self.find_jobs_with_query(jmquery)
-
-    def find_jobs_with_query(self, query):
         with self.browser.wait_for_page_load():
             self.browser.get(urls.SEARCH)
 
         # inject search parameters into page
-        self._set_disciplines(query.disciplines)
-        self._set_text_search_params(query.term, query.employer_name, query.job_title)
-        self._set_levels(query.levels)
+        self._set_disciplines(disciplines)
+        self._set_text_search_params(term, employer_name, job_title, location)
+        self._set_levels(levels)
 
         time.sleep(0.5) # TODO: figure out a better solution
 
@@ -158,13 +155,11 @@ class JobMine(object):
         # jobmine has reload the first job component
         with self.browser.wait_for_element_stale(element_id=ids.FIRST_JOB):
             self.browser.find_element_by_id(ids.SEARCH_BUTTON).click()
-            #time.sleep(2)
 
         jobs = self._scrape_jobs()
 
-        # cache last query and results
+        # cache last results (mainly for debugging purposes)
         self.last_results = jobs
-        self.last_query = query
 
         return jobs
 
@@ -196,11 +191,12 @@ class JobMine(object):
 
         return jobs
 
-    def _set_text_search_params(self, term, employer_name, job_title):
+    def _set_text_search_params(self, term, employer_name, job_title, location):
         data = {
-            'UW_CO_JOBSRCH_UW_CO_WT_SESSION': term,
-            'UW_CO_JOBSRCH_UW_CO_EMPLYR_NAME': employer_name,
-            'UW_CO_JOBSRCH_UW_CO_JOB_TITLE': job_title
+            ids.SEARCH_TERM_ID: term,
+            ids.SEARCH_EMPLOYER_NAME: employer_name,
+            ids.SEARCH_JOB_TITLE: job_title,
+            ids.SEARCH_LOCATION: location
         }
         self.browser._find_eles_by_id_and_send(data)
 
