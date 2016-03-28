@@ -27,6 +27,28 @@ class JobMineQuery(object):
         self.levels = levels
 
 
+class JobMineDriver(webdriver.PhantomJS):
+
+    def _find_eles_by_id_and_send(self, data):
+        for _id in data:
+            ele = self.find_element_by_id(_id)
+
+            ele.clear()
+            ele.send_keys(data[_id])
+
+    @contextmanager
+    def wait_for_page_load(self, timeout=10):
+        old_page = self.find_element_by_tag_name('html')
+        yield
+        WebDriverWait(self, timeout).until(staleness_of(old_page))
+
+    @contextmanager
+    def wait_for_element_stale(self, element_id, timeout=10):
+        element = self.find_element_by_id(element_id)
+        yield
+        WebDriverWait(self, timeout).until(staleness_of(element))
+
+
 class Job(object):
 
     def __init__(self, browser, data):
@@ -44,7 +66,7 @@ class Job(object):
         return json.dumps(self.data)
 
     def get_detailed_info(self):
-        with self.wait_for_page_load():
+        with self.browser.wait_for_page_load():
             self.browser.get(urls.JOB_PROFILE + self.id)
 
         soup = BeautifulSoup(self.browser.page_source, HTML_PARSER)
@@ -74,12 +96,6 @@ class Job(object):
 
         return self.data
 
-    @contextmanager
-    def wait_for_page_load(self, timeout=10):
-        old_page = self.browser.find_element_by_tag_name('html')
-        yield
-        WebDriverWait(self.browser, timeout).until(staleness_of(old_page))
-
 
 class JobMine(object):
 
@@ -88,7 +104,7 @@ class JobMine(object):
         self.last_query = None
         self.last_results = {}
 
-        self.browser = webdriver.PhantomJS('phantomjs')
+        self.browser = JobMineDriver('phantomjs')
 
         self.authorized = False
         self.login(username, password) # on success sets authorized to True
@@ -97,13 +113,13 @@ class JobMine(object):
         self.browser.quit()
 
     def login(self, username, password):
-        with self.wait_for_page_load():
+        with self.browser.wait_for_page_load():
             self.browser.get(urls.LOGIN)
 
         data = {'userid': username, 'pwd': password}
-        self._find_eles_by_id_and_send(data)
+        self.browser._find_eles_by_id_and_send(data)
 
-        with self.wait_for_page_load():
+        with self.browser.wait_for_page_load():
             self.browser \
                 .find_element_by_id(ids.LOGIN) \
                 .find_element_by_xpath("//input[@type='submit'][@name='submit']") \
@@ -128,7 +144,7 @@ class JobMine(object):
         return self.find_jobs_with_query(jmquery)
 
     def find_jobs_with_query(self, query):
-        with self.wait_for_page_load():
+        with self.browser.wait_for_page_load():
             self.browser.get(urls.SEARCH)
 
         # inject search parameters into page
@@ -140,7 +156,7 @@ class JobMine(object):
 
         # basically wait until search has been executed and
         # jobmine has reload the first job component
-        with self.wait_for_element_stale(element_id=ids.FIRST_JOB):
+        with self.browser.wait_for_element_stale(element_id=ids.FIRST_JOB):
             self.browser.find_element_by_id(ids.SEARCH_BUTTON).click()
             #time.sleep(2)
 
@@ -173,7 +189,7 @@ class JobMine(object):
 
             # check if we are on the last page of search results
             try:
-                with self.wait_for_element_stale(element_id=ids.FIRST_JOB):
+                with self.browser.wait_for_element_stale(element_id=ids.FIRST_JOB):
                     self.browser.find_element_by_id(ids.NEXT_PAGE_BUTTON).click()
             except NoSuchElementException:
                 break
@@ -186,7 +202,7 @@ class JobMine(object):
             'UW_CO_JOBSRCH_UW_CO_EMPLYR_NAME': query.employer_name,
             'UW_CO_JOBSRCH_UW_CO_JOB_TITLE': query.job_title
         }
-        self._find_eles_by_id_and_send(data)
+        self.browser._find_eles_by_id_and_send(data)
 
     def _set_disciplines(self, query):
         discip_xpath = "//select[@name='UW_CO_JOBSRCH_UW_CO_ADV_DISCP%d']/option[text()='%s']"
@@ -205,23 +221,4 @@ class JobMine(object):
             if (name in query.disciplines and not ele.is_selected()) or \
                (name not in query.disciplines and ele.is_selected()):
                 ele.click()
-
-    def _find_eles_by_id_and_send(self, data):
-        for _id in data:
-            ele = self.browser.find_element_by_id(_id)
-
-            ele.clear()
-            ele.send_keys(data[_id])
-
-    @contextmanager
-    def wait_for_page_load(self, timeout=10):
-        old_page = self.browser.find_element_by_tag_name('html')
-        yield
-        WebDriverWait(self.browser, timeout).until(staleness_of(old_page))
-
-    @contextmanager
-    def wait_for_element_stale(self, element_id, timeout=10):
-        element = self.browser.find_element_by_id(element_id)
-        yield
-        WebDriverWait(self.browser, timeout).until(staleness_of(element))
 
