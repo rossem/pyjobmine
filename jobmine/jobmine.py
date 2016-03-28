@@ -1,9 +1,11 @@
 import time
+import json
 
 from jobmine import urls
 from jobmine import ids
 from jobmine.exceptions import LoginFailed, NoPreviousQuery
 
+from unidecode import unidecode
 from bs4 import BeautifulSoup
 from contextlib import contextmanager
 from selenium import webdriver
@@ -25,6 +27,60 @@ class JobMineQuery(object):
         self.levels = levels
 
 
+class Job(object):
+
+    def __init__(self, browser, data):
+        self.browser = browser
+        self.id = data['id']
+        self.data = data
+
+    @classmethod
+    def from_row(cls, browser, row):
+        """used to construct Job from row in search results"""
+        col_names = ['id', 'title', 'employer', 'unit', 'location', 'num_openings', 'app_status', 'num_apps', 'app_deadline']
+        return cls(browser, dict(zip(col_names, row)))
+
+    def __repr__(self):
+        return json.dumps(self.data)
+
+    def get_detailed_info(self):
+        with self.wait_for_page_load():
+            self.browser.get(urls.JOB_PROFILE + self.id)
+
+        soup = BeautifulSoup(self.browser.page_source, HTML_PARSER)
+
+        detailed_data = {
+            'posting_open_date':      soup.find(id = ids.POSTING_OPEN_DATE).text,
+            'last_day_to_apply':      soup.find(id = ids.LAST_DAY_TO_APPLY).text,
+            'employer_job_number':    soup.find(id = ids.EMPLOYER_JOB_NUMBER).text,
+            'employer':               soup.find(id = ids.EMPLOYER).text,
+            'job_title':              soup.find(id = ids.JOB_TITLE).text,
+            'work_location':          soup.find(id = ids.WORK_LOCATION).text,
+            'available_openings':     soup.find(id = ids.AVAILABLE_OPENINGS).text,
+            'hiring_process_support': soup.find(id = ids.HIRING_PROCESS_SUPPORT).text,
+            'work_term_support':      soup.find(id = ids.WORK_TERM_SUPPORT).text,
+            'comments':               soup.find(id = ids.COMMENTS).text,
+            'job_description':        soup.find(id = ids.JOB_DESCRIPTION).text
+        }
+
+        disciplines = soup.find(id = ids.DISCIPLINES).text
+        disciplines_more = soup.find(id = ids.DISCIPLINES_MORE).text
+        detailed_data['disciplines'] = (disciplines + ', ' + disciplines_more).split(', ')
+
+        detailed_data['levels'] = soup.find(id = ids.LEVELS).text.split(', ')
+        detailed_data['grades_required'] = soup.find(id = ids.GRADES).text == 'Required'
+
+        self.data.update(detailed_data)
+
+        return self.data
+
+    @contextmanager
+    def wait_for_page_load(self, timeout=10):
+        old_page = self.browser.find_element_by_tag_name('html')
+        yield
+        WebDriverWait(self.browser, timeout).until(staleness_of(old_page))
+
+
 class JobMine(object):
 
     def __init__(self, username, password, sleep_delay=0):
@@ -32,8 +88,7 @@ class JobMine(object):
         self.last_query = None
         self.last_results = {}
 
-        #self.browser = webdriver.PhantomJS('phantomjs')
-        self.browser = webdriver.Firefox()
+        self.browser = webdriver.PhantomJS('phantomjs')
 
         self.authorized = False
         self.login(username, password) # on success sets authorized to True
@@ -79,9 +134,9 @@ class JobMine(object):
         # inject search parameters into page
         self._set_disciplines(query)
         self._set_text_search_params(query)
-        self._set_levels(query)
+        #self._set_levels(query)
 
-        #time.sleep(0.5)
+        time.sleep(0.5) # TODO: figure out a better solution
 
         # basically wait until search has been executed and
         # jobmine has reload the first job component
@@ -89,8 +144,7 @@ class JobMine(object):
             self.browser.find_element_by_id(ids.SEARCH_BUTTON).click()
             #time.sleep(2)
 
-        job_ids = self.get_job_ids()
-        jobs = [self.scrape_job(job_id) for job_id in job_ids]
+        jobs = self.get_jobs()
 
         # cache last query and results
         self.last_results = jobs
@@ -98,13 +152,24 @@ class JobMine(object):
 
         return jobs
 
-    def get_job_ids(self):
-        job_ids = []
+    def get_jobs(self):
+        jobs = []
 
         while True:
             soup = BeautifulSoup(self.browser.page_source, HTML_PARSER)
-            job_spans = soup.findAll('span', id=lambda x: x and x.startswith(ids.JOB_ID_GENERIC))
-            job_ids.extend([span.text for span in job_spans if span.text != u'\xa0'])
+
+            ungrouped_jobs = []
+            for ele_id in ids.JOB_LISTING_COLUMNS:
+                spans = soup.findAll('span', id=lambda x: x and x.startswith(ele_id))
+                ungrouped_jobs.append([unidecode(span.text).strip() for span in spans])
+
+            grouped_jobs = list(zip(*ungrouped_jobs))
+
+            # check if first job id is invalid incase no matches found
+            if grouped_jobs[0][0] == '':
+                return []
+
+            jobs.extend([Job.from_row(self.browser, row) for row in grouped_jobs])
 
             # check if we are on the last page of search results
             try:
@@ -113,36 +178,7 @@ class JobMine(object):
             except NoSuchElementException:
                 break
 
-        return job_ids
-
-    def scrape_job(self, job_id):
-        with self.wait_for_page_load():
-            self.browser.get(urls.JOB_PROFILE + job_id)
-
-        soup = BeautifulSoup(self.browser.page_source, HTML_PARSER)
-        job_data = {
-            'job_id':                 job_id,
-            'posting_open_date':      soup.find(id = ids.POSTING_OPEN_DATE).text,
-            'last_day_to_apply':      soup.find(id = ids.LAST_DAY_TO_APPLY).text,
-            'employer_job_number':    soup.find(id = ids.EMPLOYER_JOB_NUMBER).text,
-            'employer':               soup.find(id = ids.EMPLOYER).text,
-            'job_title':              soup.find(id = ids.JOB_TITLE).text,
-            'work_location':          soup.find(id = ids.WORK_LOCATION).text,
-            'available_openings':     int(soup.find(id = ids.AVAILABLE_OPENINGS).text),
-            'hiring_process_support': soup.find(id = ids.HIRING_PROCESS_SUPPORT).text,
-            'work_term_support':      soup.find(id = ids.WORK_TERM_SUPPORT).text,
-            'comments':               soup.find(id = ids.COMMENTS).text,
-            'job_description':        soup.find(id = ids.JOB_DESCRIPTION).text
-        }
-
-        disciplines = soup.find(id = ids.DISCIPLINES).text
-        disciplines_more = soup.find(id = ids.DISCIPLINES_MORE).text
-        job_data['disciplines'] = (disciplines + ', ' + disciplines_more).split(', ')
-
-        job_data['levels'] = soup.find(id = ids.LEVELS).text.split(', ')
-        job_data['grades_required'] = soup.find(id = ids.GRADES).text == 'Required'
-
-        return job_data
+        return jobs
 
     def _set_text_search_params(self, query):
         data = {
@@ -188,3 +224,4 @@ class JobMine(object):
         element = self.browser.find_element_by_id(element_id)
         yield
         WebDriverWait(self.browser, timeout).until(staleness_of(element))
+
