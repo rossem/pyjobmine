@@ -139,7 +139,7 @@ class JobMine(object):
 
     def find_jobs(self, term=1165, employer_name="", job_title="",
                   disciplines=["ENG-Software", "MATH-Computer Science", "MATH-Computing & Financial Mgm"],
-                  levels=['junior', 'intermdiate', 'senior']):
+                  levels=['junior', 'intermediate', 'senior']):
         jmquery = JobMineQuery(term, employer_name, job_title, disciplines, levels)
         return self.find_jobs_with_query(jmquery)
 
@@ -148,9 +148,9 @@ class JobMine(object):
             self.browser.get(urls.SEARCH)
 
         # inject search parameters into page
-        self._set_disciplines(query)
-        self._set_text_search_params(query)
-        #self._set_levels(query)
+        self._set_disciplines(query.disciplines)
+        self._set_text_search_params(query.term, query.employer_name, query.job_title)
+        self._set_levels(query.levels)
 
         time.sleep(0.5) # TODO: figure out a better solution
 
@@ -196,29 +196,32 @@ class JobMine(object):
 
         return jobs
 
-    def _set_text_search_params(self, query):
+    def _set_text_search_params(self, term, employer_name, job_title):
         data = {
-            'UW_CO_JOBSRCH_UW_CO_WT_SESSION': query.term,
-            'UW_CO_JOBSRCH_UW_CO_EMPLYR_NAME': query.employer_name,
-            'UW_CO_JOBSRCH_UW_CO_JOB_TITLE': query.job_title
+            'UW_CO_JOBSRCH_UW_CO_WT_SESSION': term,
+            'UW_CO_JOBSRCH_UW_CO_EMPLYR_NAME': employer_name,
+            'UW_CO_JOBSRCH_UW_CO_JOB_TITLE': job_title
         }
         self.browser._find_eles_by_id_and_send(data)
 
-    def _set_disciplines(self, query):
+    def _set_disciplines(self, disciplines):
         discip_xpath = "//select[@name='UW_CO_JOBSRCH_UW_CO_ADV_DISCP%d']/option[text()='%s']"
 
-        for i in range(len(query.disciplines)):
-            self.browser.find_element_by_xpath(discip_xpath % (i + 1, query.disciplines[i])).click()
+        for i in range(len(disciplines)):
+            self.browser.find_element_by_xpath(discip_xpath % (i + 1, disciplines[i])).click()
 
-    def _set_levels(self, query):
+    def _set_levels(self, levels):
         level_elements = {
             'junior': self.browser.find_element_by_id(ids.LEVEL_JUNIOR),
-            'intermdiate': self.browser.find_element_by_id(ids.LEVEL_INTERMEDIATE),
-            'senior': self.browser.find_element_by_id(ids.LEVEL_SENIOR)
+            'intermediate': self.browser.find_element_by_id(ids.LEVEL_INTERMEDIATE),
+            'senior': self.browser.find_element_by_id(ids.LEVEL_SENIOR),
+            'bachelor': self.browser.find_element_by_id(ids.LEVEL_BACHELOR),
+            'masters': self.browser.find_element_by_id(ids.LEVEL_MASTERS),
+            'phd': self.browser.find_element_by_id(ids.LEVEL_PHD)
         }
 
         for name, ele in level_elements.items():
-            if (name in query.disciplines and not ele.is_selected()) or \
-               (name not in query.disciplines and ele.is_selected()):
+            if (name in levels and not ele.is_selected()) or \
+               (name not in levels and ele.is_selected()):
                 ele.click()
 
