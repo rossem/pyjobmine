@@ -99,10 +99,9 @@ class Job(object):
 
 class JobMine(object):
 
-    def __init__(self, username, password, sleep_delay=0):
-        self.sleep_delay = sleep_delay
+    def __init__(self, username, password):
         self.last_query = None
-        self.last_results = {}
+        self.last_results = []
 
         self.browser = JobMineDriver('phantomjs')
 
@@ -130,6 +129,13 @@ class JobMine(object):
             raise LoginFailed(login_err)
         except NoSuchElementException:
             self.authorized = True
+
+    def get_num_apps_remaining(self):
+        if not hasattr(self, 'num_apps_remaining'):
+            self.browser.get(urls.SEARCH)
+            self.num_apps_remaining = int(self.browser.find_element_by_id(ids.NUM_APPS_REMAINING).text)
+
+        return self.num_apps_remaining
 
     def find_jobs_with_last_query(self):
         if self.last_query is not None:
