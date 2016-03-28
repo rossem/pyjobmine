@@ -3,7 +3,7 @@ import json
 
 from jobmine import urls
 from jobmine import ids
-from jobmine.exceptions import LoginFailed, NoPreviousQuery
+from jobmine.exceptions import LoginFailed
 
 from unidecode import unidecode
 from bs4 import BeautifulSoup
@@ -121,7 +121,7 @@ class JobMine(object):
         with self.browser.wait_for_page_load():
             self.browser \
                 .find_element_by_id(ids.LOGIN) \
-                .find_element_by_xpath("//input[@type='submit'][@name='submit']") \
+                .find_element_by_xpath('//input[@type=\'submit\'][@name=\'submit\']') \
                 .submit()
 
         try:
@@ -137,14 +137,8 @@ class JobMine(object):
 
         return self.num_apps_remaining
 
-    def find_jobs_with_last_query(self):
-        if self.last_query is not None:
-            return self.find_jobs_with_query(self.last_query)
-        else:
-            raise NoPreviousQuery('You have not made a query yet')
-
-    def find_jobs(self, term=1165, employer_name="", job_title="",
-                  disciplines=["ENG-Software", "MATH-Computer Science", "MATH-Computing & Financial Mgm"],
+    def find_jobs(self, term=1165, employer_name='', job_title='',
+                  disciplines=['ENG-Software', 'MATH-Computer Science', 'MATH-Computing & Financial Mgm'],
                   levels=['junior', 'intermediate', 'senior']):
         jmquery = JobMineQuery(term, employer_name, job_title, disciplines, levels)
         return self.find_jobs_with_query(jmquery)
@@ -166,7 +160,7 @@ class JobMine(object):
             self.browser.find_element_by_id(ids.SEARCH_BUTTON).click()
             #time.sleep(2)
 
-        jobs = self.get_jobs()
+        jobs = self._scrape_jobs()
 
         # cache last query and results
         self.last_results = jobs
@@ -174,7 +168,7 @@ class JobMine(object):
 
         return jobs
 
-    def get_jobs(self):
+    def _scrape_jobs(self):
         jobs = []
 
         while True:
