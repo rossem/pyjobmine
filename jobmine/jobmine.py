@@ -30,6 +30,7 @@ class JobMineQuery(object):
 
 
 class JobMineDriver(webdriver.PhantomJS):
+    DEFAULT_TIMEOUT = 10 # seconds
 
     def _find_eles_by_id_and_send(self, data):
         for _id in data:
@@ -39,13 +40,13 @@ class JobMineDriver(webdriver.PhantomJS):
             ele.send_keys(data[_id])
 
     @contextmanager
-    def wait_for_page_load(self, timeout=10):
+    def wait_for_page_load(self, timeout=self.DEFAULT_TIMEOUT):
         old_page = self.find_element_by_tag_name('html')
         yield
         WebDriverWait(self, timeout).until(staleness_of(old_page))
 
     @contextmanager
-    def wait_for_element_stale(self, element_id, timeout=10):
+    def wait_for_element_stale(self, element_id, timeout=self.DEFAULT_TIMEOUT):
         element = self.find_element_by_id(element_id)
         yield
         WebDriverWait(self, timeout).until(staleness_of(element))
@@ -165,14 +166,17 @@ class JobMine(object):
         return jobs
 
     def _scrape_jobs(self):
+        """Scrapes job search results from current page and consecutive pages.
+        Assumes that the search has already been completed.
+        """
         jobs = []
 
         while True:
             soup = BeautifulSoup(self.browser.page_source, HTML_PARSER)
 
             ungrouped_jobs = []
-            for ele_id in ids.JOB_LISTING_COLUMNS:
-                spans = soup.findAll('span', id=lambda x: x and x.startswith(ele_id))
+            for col_id in ids.JOB_LISTING_COLUMNS:
+                spans = soup.findAll('span', id=lambda ele_id: ele_id and ele_id.startswith(col_id))
                 ungrouped_jobs.append([unidecode(span.text).strip() for span in spans])
 
             grouped_jobs = list(zip(*ungrouped_jobs))
