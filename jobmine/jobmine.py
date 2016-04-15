@@ -16,6 +16,7 @@ from selenium.common.exceptions import NoSuchElementException
 
 
 HTML_PARSER = 'html.parser'
+CURRENT_TERM_ID = 1165 # TODO: change this in May
 
 
 class JobMineQuery(object):
@@ -138,7 +139,7 @@ class JobMine(object):
 
         return self.num_apps_remaining
 
-    def find_jobs(self, term=1165, employer_name='', job_title='', location = UNITED_STATES,
+    def find_jobs(self, term=CURRENT_TERM_ID, employer_name='', job_title='', location = UNITED_STATES,
                   disciplines=['ENG-Software', 'MATH-Computer Science', 'MATH-Computing & Financial Mgm'],
                   levels=['junior', 'intermediate', 'senior']):
         with self.browser.wait_for_page_load():
